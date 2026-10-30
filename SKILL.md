@@ -1,15 +1,18 @@
 ---
 name: anglo-concertina-tab
-description: Arrange music for a 30-button C/G Jeffries anglo concertina and engrave it as number tablature. Use for concertina arrangements, button tab, bellows-direction problems, or reading handwritten anglo tab.
+description: Arrange music for a 30-button C/G Jeffries or Wheatstone anglo concertina and engrave it as number tablature. Use for concertina arrangements, button tab, bellows-direction problems, or reading handwritten anglo tab.
 ---
 
 # Anglo concertina tablature
 
-Arranging a tune for 30-button C/G Jeffries anglo and typesetting it as button
+Arranging a tune for a 30-button C/G anglo and typesetting it as button
 tablature. The instrument is bisonoric: every button gives one note on the push
 and a different one on the pull, and **both hands share one bellows**, so every
 note sounding at a given instant must agree on direction. That single constraint
 drives the whole job and is why this needs a solver rather than a lookup.
+
+Both the **Jeffries** (default) and **Wheatstone** accidental-row layouts are
+supported. See "Button charts" for the one row that differs.
 
 ## Quick start
 
@@ -17,8 +20,12 @@ drives the whole job and is why this needs a solver rather than a lookup.
 
 ```
 python3 scripts/anglotab.py tune.mid -o tune.pdf --title "Tune name" \
+        --layout jeffries \
         --sections "A1:0,A2:8,B1:16,B2:24"
 ```
+
+Use `--layout wheatstone` for a Wheatstone or Lachenal instrument. The default is
+`jeffries`.
 
 It prints a verification report before writing the PDF. **Read the report** — it
 is the part that catches real errors, and every compromise it lists should be
@@ -55,10 +62,12 @@ Confirm by counting tokens per group against the tune — groups of 3,3,4,3,2,2
 matching quarter+two-eighths, four eighths, dotted-quarter+eighth settles it.
 `X` and `-` normally mean "previous note continues".
 
-## Button charts (C/G Jeffries, 30 button)
+## Button charts (C/G, 30 button)
 
-C4 is middle C. Each cell is **push / pull**. Verified against a real
-Jeffries-layout instrument, accidental rows included.
+C4 is middle C. Each cell is **push / pull**. This is the **Jeffries** layout
+(the script default), verified against a real Jeffries-layout instrument,
+accidental rows included. For Wheatstone, swap only the right-hand accidental row
+(see below).
 
 **Left hand**
 
@@ -81,6 +90,21 @@ with the rows swapped is internally consistent but sounds a fifth off. If a
 player's own arrangement is the only evidence, work out which reading makes the
 chords coherent: left 1 plus 4/5 pushed is C major under the C-row reading and G
 major under the G-row reading — see which fits the key.
+
+**Wheatstone layout (`--layout wheatstone`).** Wheatstone and Lachenal
+instruments share the C row, the G row and the whole left hand with Jeffries. Only
+the **right-hand accidental row** differs. The main practical effect: Jeffries
+gives C♯ on both the push and the pull in the right hand; Wheatstone gives it on
+the push only.
+
+| | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| right accidental (1a–5a) | C♯5 / D♯5 | A5 / G5 | G♯5 / A♯5 | C♯6 / D♯6 | A5 / F6 |
+
+This row is transcribed from the concertina.info Wheatstone chart. The note names
+are exact; the octaves follow the right-hand register and the Jeffries row, but
+are not verified against a physical instrument — check them against the player's
+box. Every other button matches the Jeffries charts above.
 
 ## Rules the script encodes
 

@@ -28,8 +28,27 @@ LEFT = {'1':(M('C',3),M('G',3)),  '2':(M('G',3),M('B',3)),  '3':(M('C',4),M('D',
 RIGHT = {'1':(M('C',5),M('B',4)), '2':(M('E',5),M('D',5)), '3':(M('G',5),M('F',5)),
          '4':(M('C',6),M('A',5)), '5':(M('E',6),M('B',5)), '6':(M('G',5),M('F#',5)),
          '7':(M('B',5),M('A',5)), '8':(M('D',6),M('C',6)), '9':(M('G',6),M('E',6)),
-         '10':(M('B',6),M('F#',6)),'1a':(M('D#',5),M('C#',5)),'2a':(M('C#',5),M('D#',5)),
-         '3a':(M('G#',5),M('G',5)),'4a':(M('C#',6),M('A#',5)),'5a':(M('A',5),M('D',6))}
+         '10':(M('B',6),M('F#',6))}
+# Jeffries and Wheatstone share the C row, the G row and the whole left hand; only
+# the right-hand accidental row (1a-5a) differs.  Jeffries is the default and is
+# verified against a real instrument.  The Wheatstone row is transcribed from the
+# concertina.info Wheatstone chart: the note names are exact, the octaves follow
+# the right-hand register and the Jeffries row.  Verify against your instrument.
+RIGHT_ACCIDENTALS = {
+    'jeffries':   {'1a':(M('D#',5),M('C#',5)), '2a':(M('C#',5),M('D#',5)),
+                   '3a':(M('G#',5),M('G',5)),  '4a':(M('C#',6),M('A#',5)),
+                   '5a':(M('A',5),M('D',6))},
+    'wheatstone': {'1a':(M('C#',5),M('D#',5)), '2a':(M('A',5),M('G',5)),
+                   '3a':(M('G#',5),M('A#',5)), '4a':(M('C#',6),M('D#',6)),
+                   '5a':(M('A',5),M('F',6))},
+}
+
+def set_layout(name):
+    """Select the right-hand accidental row: 'jeffries' (default) or 'wheatstone'.
+    Every other button is shared, so this is the whole difference between them."""
+    RIGHT.update(RIGHT_ACCIDENTALS[name])
+
+set_layout('jeffries')                        # default when used without the CLI
 # search order: C row first, then G row, then accidentals
 ORD_L = ['3','4','5','7','9','1','2','8','10','6','1a','4a','2a','5a','3a']
 ORD_R = ['1','2','3','4','5','6','7','8','5a','3a','1a','2a','9','10','4a']
@@ -387,8 +406,11 @@ if __name__ == '__main__':
     ap.add_argument('--bars', type=int, default=0, help='bars to arrange (default: all)')
     ap.add_argument('--per-line', type=int, default=4)
     ap.add_argument('--melody-track', type=int, default=0)
+    ap.add_argument('--layout', choices=['jeffries', 'wheatstone'], default='jeffries',
+                    help='accidental-row layout (default: jeffries)')
     ap.add_argument('--sections', default='', help='e.g. "A1:0,A2:8,B1:16"')
     a = ap.parse_args()
+    set_layout(a.layout)
     tracks = read_midi(a.midi)
     span = max(s+qdur(d) for tr in tracks for s, d, _ in tr)
     bars = a.bars or int(round(span/4))
@@ -399,6 +421,6 @@ if __name__ == '__main__':
     for row in changed:
         print('    bar %-3d beat %-4g %-8s %s -> %s' % row)
     secs = [(s.split(':')[0], int(s.split(':')[1])) for s in a.sections.split(',')] if a.sections else None
-    sub = a.subtitle or 'Jeffries anglo. Right hand above, left hand below; melody in black, accompaniment in blue. A line over a number means pull.'
+    sub = a.subtitle or ('%s anglo. Right hand above, left hand below; melody in black, accompaniment in blue. A line over a number means pull.' % a.layout.capitalize())
     engrave(grid, bars, a.out, a.title, sub, a.per_line, secs)
     print('--- wrote %s' % a.out)

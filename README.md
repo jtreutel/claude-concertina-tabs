@@ -1,8 +1,9 @@
 # claude-concertina-tabs
 
 A [Claude](https://claude.com/claude-code) skill that arranges music for a
-30-button C/G Jeffries **anglo concertina** and engraves it as button tablature
-(a PDF).
+30-button C/G **anglo concertina** and engraves it as button tablature (a PDF).
+It supports both the **Jeffries** (default) and **Wheatstone** accidental-row
+layouts.
 
 The anglo is bisonoric: each button gives one note on the push and a different
 note on the pull, and both hands share one bellows. So every note that sounds at
@@ -46,8 +47,12 @@ files.
 pip install reportlab
 
 python3 scripts/anglotab.py tune.mid -o tune.pdf --title "Tune name" \
+        --layout jeffries \
         --sections "A1:0,A2:8,B1:16,B2:24"
 ```
+
+Pass `--layout wheatstone` for a Wheatstone or Lachenal instrument. The default is
+`jeffries`.
 
 A good run reports `melody mismatches: 0` and `accompaniment above the melody: 0`.
 
@@ -55,8 +60,10 @@ A good run reports `melody mismatches: 0` and `accompaniment above the melody: 0
 
 - **Input is MIDI only.** Track 0 is the melody; every other note becomes the
   accompaniment pool. MusicXML is not supported yet.
-- The instrument is a C/G Jeffries 30-button layout. The button charts in
-  `SKILL.md` are verified against a real instrument.
+- The instrument is a C/G 30-button layout, Jeffries or Wheatstone. The Jeffries
+  charts in `SKILL.md` are verified against a real instrument; the Wheatstone
+  accidental row is transcribed from a published chart (note names exact, octaves
+  from the standard register — verify against your box).
 - The scoring weights are tuned for one piece, and the engraver has no pickup-bar
   handling yet. See "Known gaps" in `SKILL.md`.
 
