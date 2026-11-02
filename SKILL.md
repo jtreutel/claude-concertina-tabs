@@ -20,12 +20,16 @@ supported. See "Button charts" for the one row that differs.
 
 ```
 python3 scripts/anglotab.py tune.mid -o tune.pdf --title "Tune name" \
-        --layout jeffries \
+        --layout jeffries --emit-midi \
         --sections "A1:0,A2:8,B1:16,B2:24"
 ```
 
 Use `--layout wheatstone` for a Wheatstone or Lachenal instrument. The default is
 `jeffries`.
+
+`--emit-midi` also writes `tune.mid`: the arrangement played back, each hand
+holding one voicing until it strikes again or the bellows turns. Listen to it to
+check the arrangement by ear, not only the page. Set the tempo with `--bpm`.
 
 It prints a verification report before writing the PDF. **Read the report** — it
 is the part that catches real errors, and every compromise it lists should be

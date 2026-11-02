@@ -436,6 +436,38 @@ def engrave(grid, bars, path, title, subtitle, per_line=4, sections=None):
         y -= 4
     c.save()
 
+# -------------------------------------------------------------------- midi out
+def emit_midi(grid, bars, path, bpm=100):
+    """Render the arrangement back to a MIDI file for proof-listening.  Each hand
+    holds one voicing at a time: a note sounds until that hand strikes again or
+    the bellows changes -- what the player actually hears, not an endless sustain."""
+    NS = bars*8; TPQ = 480; SLOT = TPQ//2
+    ev = []                                         # (tick, 0 = off / 1 = on, pitch)
+    for hand, tbl in (('R', RIGHT), ('L', LEFT)):
+        active = set(); prev = None
+        for i in range(NS):
+            cell = grid[i//8][i%8]; d = cell['d']; tick = i*SLOT
+            struck = {tbl[x][d] for x in cell[hand]}
+            if d != prev or struck:                 # a new strike or bellows flip ends the hand
+                for p in active: ev.append((tick, 0, p))
+                active = set()
+            for p in struck: ev.append((tick, 1, p)); active.add(p)
+            prev = d
+        for p in active: ev.append((NS*SLOT, 0, p))
+    ev.sort(key=lambda x: (x[0], x[1]))             # at one tick, note-offs before note-ons
+    def vlq(n):
+        out = bytearray([n & 0x7f]); n >>= 7
+        while n: out.insert(0, (n & 0x7f) | 0x80); n >>= 7
+        return bytes(out)
+    body = bytearray()
+    body += vlq(0) + bytes([0xff, 0x51, 0x03]) + struct.pack('>I', 60000000//bpm)[1:]
+    last = 0
+    for tick, on, p in ev:
+        body += vlq(tick-last) + bytes([0x90 if on else 0x80, p, 96 if on else 64]); last = tick
+    body += vlq(0) + bytes([0xff, 0x2f, 0x00])
+    open(path, 'wb').write(b'MThd' + struct.pack('>IHHH', 6, 0, 1, TPQ)
+                           + b'MTrk' + struct.pack('>I', len(body)) + bytes(body))
+
 # ------------------------------------------------------------------------ cli
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
@@ -447,6 +479,9 @@ if __name__ == '__main__':
     ap.add_argument('--layout', choices=['jeffries', 'wheatstone'], default='jeffries',
                     help='accidental-row layout (default: jeffries)')
     ap.add_argument('--sections', default='', help='e.g. "A1:0,A2:8,B1:16"')
+    ap.add_argument('--emit-midi', action='store_true',
+                    help='also write a MIDI of the arrangement (same name, .mid) to proof-listen')
+    ap.add_argument('--bpm', type=int, default=100, help='tempo for --emit-midi (default 100)')
     a = ap.parse_args()
     set_layout(a.layout)
     tracks = read_midi(a.midi)
@@ -462,3 +497,7 @@ if __name__ == '__main__':
     sub = a.subtitle or ('%s anglo. Right hand above, left hand below; melody in black, accompaniment in blue. A line over a number means pull.' % a.layout.capitalize())
     engrave(grid, bars, a.out, a.title, sub, a.per_line, secs)
     print('--- wrote %s' % a.out)
+    if a.emit_midi:
+        midpath = a.out.rsplit('.', 1)[0] + '.mid'
+        emit_midi(grid, bars, midpath, a.bpm)
+        print('--- wrote %s' % midpath)
