@@ -110,8 +110,8 @@ def onsets(track, t):
     return [p for s, d, p in track if abs(s - t) < 1e-6]
 
 # ------------------------------------------------------------------- arrange
-def arrange(tracks, bars, melody_track=0):
-    NS = bars * 8
+def arrange(tracks, bars, melody_track=0, spb=8):
+    NS = bars * spb                                 # spb = eighth-slots per bar (8 in 4/4, 6 in 3/4)
     mel_tr = tracks[melody_track]
 
     # melody = highest SOUNDING pitch, not highest onset
@@ -224,8 +224,8 @@ def arrange(tracks, bars, melody_track=0):
     grid = []; notes_changed = []
     for bar in range(bars):
         row = []
-        for e in range(8):
-            i = bar*8 + e; d = dirs[i]
+        for e in range(spb):
+            i = bar*spb + e; d = dirs[i]
             cell = {'d': d, 'R': [], 'L': [], 'M': None, 'Mh': None, 're': False}
             usedL, usedR, held = set(), set(), set()
             ceil = msound[i] if msound[i] is not None else 200
@@ -313,19 +313,19 @@ def arrange(tracks, bars, melody_track=0):
     return grid, mel, msound, notes_changed
 
 # ---------------------------------------------------------------- verification
-def verify(grid, tracks, mel, msound, bars):
-    NS = bars*8; ok = True
+def verify(grid, tracks, mel, msound, bars, spb=8):
+    NS = bars*spb; ok = True
     def mel_pitch(cell):
         if cell['M'] is None: return None
         return (RIGHT if cell['Mh'] == 'R' else LEFT)[cell['M']][cell['d']]
-    bad = sum(1 for b in range(bars) for e in range(8)
-              if mel[b*8+e] is not None and mel_pitch(grid[b][e]) != mel[b*8+e])
+    bad = sum(1 for b in range(bars) for e in range(spb)
+              if mel[b*spb+e] is not None and mel_pitch(grid[b][e]) != mel[b*spb+e])
     print('melody mismatches: %d%s' % (bad, '' if bad == 0 else '   <-- MUST be 0'))
     ok &= bad == 0
     live = {}; prev = None; missing = []
     for b in range(bars):
-        for e in range(8):
-            i = b*8+e; c = grid[b][e]; d = c['d']
+        for e in range(spb):
+            i = b*spb+e; c = grid[b][e]; d = c['d']
             if d != prev: live = {}
             prev = d
             for x in c['R']: live[('R', x)] = RIGHT[x][d]
@@ -340,8 +340,8 @@ def verify(grid, tracks, mel, msound, bars):
         print('    bar %-3d beat %-4g  %s' % mrow)
     above = []
     for b in range(bars):
-        for e in range(8):
-            cell = grid[b][e]; d = cell['d']; ms = msound[b*8+e]
+        for e in range(spb):
+            cell = grid[b][e]; d = cell['d']; ms = msound[b*spb+e]
             if not ms: continue
             for hand, tbl in (('R', RIGHT), ('L', LEFT)):
                 for x in cell[hand]:
@@ -366,7 +366,7 @@ def verify(grid, tracks, mel, msound, bars):
     return ok
 
 # -------------------------------------------------------------------- engrave
-def engrave(grid, bars, path, title, subtitle, per_line=4, sections=None):
+def engrave(grid, bars, path, title, subtitle, per_line=4, sections=None, spb=8):
     from reportlab.lib.pagesizes import A4
     from reportlab.pdfgen import canvas
     from reportlab.lib.colors import HexColor
@@ -375,7 +375,7 @@ def engrave(grid, bars, path, title, subtitle, per_line=4, sections=None):
     ACC, SOFT, CELL = HexColor('#4a6f86'), HexColor('#6b7679'), HexColor('#c5ccc6')
     Mg, GUT = 26, 15
     X0, XE = Mg+GUT, W-Mg
-    SLOT = (XE-X0) / (per_line*8)
+    SLOT = (XE-X0) / (per_line*spb)
     RH, LHH, PITCH = 39, 38, 85
     FM, FA, LSP = 11.8, 9.4, 10.4
     c = canvas.Canvas(path, pagesize=A4)
@@ -393,10 +393,10 @@ def engrave(grid, bars, path, title, subtitle, per_line=4, sections=None):
         c.setFillColor(SOFT); c.setFont('Helvetica', 7.5)
         c.drawRightString(X0-5, ytop-11, str(bar0+1))
         for k in range(per_line):
-            x0 = X0 + k*8*SLOT
+            x0 = X0 + k*spb*SLOT
             c.setStrokeColor(CELL); c.setLineWidth(0.5); c.setDash([2, 2])
-            c.line(x0+4*SLOT, ytop, x0+4*SLOT, ybot); c.setDash()
-            for e in range(8):
+            c.line(x0+(spb//2)*SLOT, ytop, x0+(spb//2)*SLOT, ybot); c.setDash()
+            for e in range(spb):
                 if bar0+k >= bars: break
                 cell = grid[bar0+k][e]; pull = cell['d'] == PULL
                 xc = x0 + (e+0.5)*SLOT
@@ -416,7 +416,7 @@ def engrave(grid, bars, path, title, subtitle, per_line=4, sections=None):
         c.setStrokeColor(RULE); c.setLineWidth(1.1)
         c.line(X0, ytop, XE, ytop); c.line(X0, ybot, XE, ybot)
         for k in range(per_line+1):                        # close BOTH ends
-            c.line(X0+k*8*SLOT, ytop, X0+k*8*SLOT, ybot)
+            c.line(X0+k*spb*SLOT, ytop, X0+k*spb*SLOT, ybot)
         if final:
             c.line(XE-4, ytop, XE-4, ybot)
             c.setLineWidth(2.6); c.line(XE-1.3, ytop, XE-1.3, ybot)
@@ -437,16 +437,16 @@ def engrave(grid, bars, path, title, subtitle, per_line=4, sections=None):
     c.save()
 
 # -------------------------------------------------------------------- midi out
-def emit_midi(grid, bars, path, bpm=100):
+def emit_midi(grid, bars, path, bpm=100, spb=8):
     """Render the arrangement back to a MIDI file for proof-listening.  Each hand
     holds one voicing at a time: a note sounds until that hand strikes again or
     the bellows changes -- what the player actually hears, not an endless sustain."""
-    NS = bars*8; TPQ = 480; SLOT = TPQ//2
+    NS = bars*spb; TPQ = 480; SLOT = TPQ//2
     ev = []                                         # (tick, 0 = off / 1 = on, pitch)
     for hand, tbl in (('R', RIGHT), ('L', LEFT)):
         active = set(); prev = None
         for i in range(NS):
-            cell = grid[i//8][i%8]; d = cell['d']; tick = i*SLOT
+            cell = grid[i//spb][i%spb]; d = cell['d']; tick = i*SLOT
             struck = {tbl[x][d] for x in cell[hand]}
             if d != prev or struck:                 # a new strike or bellows flip ends the hand
                 for p in active: ev.append((tick, 0, p))
@@ -479,25 +479,28 @@ if __name__ == '__main__':
     ap.add_argument('--layout', choices=['jeffries', 'wheatstone'], default='jeffries',
                     help='accidental-row layout (default: jeffries)')
     ap.add_argument('--sections', default='', help='e.g. "A1:0,A2:8,B1:16"')
+    ap.add_argument('--meter', choices=['4/4', '2/2', '3/4', '6/8', '2/4'], default='4/4',
+                    help='time signature; sets eighth-slots per bar (default 4/4)')
     ap.add_argument('--emit-midi', action='store_true',
                     help='also write a MIDI of the arrangement (same name, .mid) to proof-listen')
     ap.add_argument('--bpm', type=int, default=100, help='tempo for --emit-midi (default 100)')
     a = ap.parse_args()
     set_layout(a.layout)
+    spb = {'4/4': 8, '2/2': 8, '3/4': 6, '6/8': 6, '2/4': 4}[a.meter]   # eighth-slots per bar
     tracks = read_midi(a.midi)
     span = max(s+qdur(d) for tr in tracks for s, d, _ in tr)
-    bars = a.bars or int(round(span/4))
-    grid, mel, msound, changed = arrange(tracks, bars, a.melody_track)
+    bars = a.bars or int(round(span / (spb/2)))                         # spb/2 quarters per bar
+    grid, mel, msound, changed = arrange(tracks, bars, a.melody_track, spb)
     print('--- verification')
-    verify(grid, tracks, mel, msound, bars)
+    verify(grid, tracks, mel, msound, bars, spb)
     print('--- notes changed from the source: %d' % len(changed))
     for row in changed:
         print('    bar %-3d beat %-4g %-8s %s -> %s' % row)
     secs = [(s.split(':')[0], int(s.split(':')[1])) for s in a.sections.split(',')] if a.sections else None
     sub = a.subtitle or ('%s anglo. Right hand above, left hand below; melody in black, accompaniment in blue. A line over a number means pull.' % a.layout.capitalize())
-    engrave(grid, bars, a.out, a.title, sub, a.per_line, secs)
+    engrave(grid, bars, a.out, a.title, sub, a.per_line, secs, spb)
     print('--- wrote %s' % a.out)
     if a.emit_midi:
         midpath = a.out.rsplit('.', 1)[0] + '.mid'
-        emit_midi(grid, bars, midpath, a.bpm)
+        emit_midi(grid, bars, midpath, a.bpm, spb)
         print('--- wrote %s' % midpath)

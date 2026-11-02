@@ -20,9 +20,12 @@ supported. See "Button charts" for the one row that differs.
 
 ```
 python3 scripts/anglotab.py tune.mid -o tune.pdf --title "Tune name" \
-        --layout jeffries --emit-midi \
+        --layout jeffries --meter 4/4 --emit-midi \
         --sections "A1:0,A2:8,B1:16,B2:24"
 ```
+
+Set `--meter` to the tune's time signature (`4/4`, `2/2`, `3/4`, `6/8`, `2/4`) so
+the barlines and grid line up. A 3/4 waltz needs `--meter 3/4`.
 
 Use `--layout wheatstone` for a Wheatstone or Lachenal instrument. The default is
 `jeffries`.
@@ -56,10 +59,11 @@ is enough.
 **Direction.** A line over the number means pull; bare means push. In plain text,
 a leading underscore (`_R3` = pull right-hand button 3).
 
-**Rhythm.** A grid of eighth-note slots, eight to a 4/4 or cut-time bar. A note
-starts in its slot and sounds until the next one begins, so **a blank slot means
-hold** and a repeated number means a re-attack. Simultaneous notes stack
-vertically in one slot, in pitch order.
+**Rhythm.** A grid of eighth-note slots: eight to a 4/4 or cut-time bar, six to a
+3/4 or 6/8 bar, four to 2/4. Set the meter with `--meter` (default 4/4); the grid,
+barlines and bar count follow it. A note starts in its slot and sounds until the
+next one begins, so **a blank slot means hold** and a repeated number means a
+re-attack. Simultaneous notes stack vertically in one slot, in pitch order.
 
 **Reading someone's handwritten tab:** slashes usually separate beats, not bars.
 Confirm by counting tokens per group against the tune — groups of 3,3,4,3,2,2
