@@ -118,6 +118,13 @@ arrangement. Keep them if you rewrite it.
   textures a held upper note sits above a moving inner voice for several beats.
   The melody must come out exactly — same pitch, same octave. Everything else is
   negotiable; this is not.
+- **Put the melody in whichever hand holds the note.** The right hand is its home,
+  but a melody that dips below B4 (the lowest right-hand note) lives in the left
+  hand or the overlap, exactly as a player takes it. The solver prefers the right
+  hand and crosses to the left only when the note needs it. A note that is off the
+  instrument at pitch in both hands is octave-displaced (right hand first) and the
+  shift is reported. This is why a tune does not have to sit entirely in the right
+  hand — but a melody wider than the instrument still forces displacements.
 - **Re-strike anything cut by a bellows change.** A tie cannot survive a direction
   change — the note physically stops. Bass *and* inner voices need re-attacking,
   and a held bass also wants re-striking on each beat so the line keeps speaking.
@@ -163,6 +170,13 @@ arrangement. Keep them if you rewrite it.
 - D minor and D dorian lie well: Dm, F and G7 on the pull of the left C row, C and
   E minor on the push, so chord changes drive the bellows instead of fighting it.
   G major behaves the same way on the G row.
+- **Key matters more than anything.** The box is a C/G diatonic instrument, so C,
+  G, D, A minor and E minor fit; flat keys (E♭, A♭, B♭, F) need the accidental row
+  for notes that should be plain, and the harmony collapses. If a source is in a
+  flat key, transpose it into a home key before arranging — on one film-song test,
+  moving from E♭ to G cut the dropped notes and the compromises by about half.
+  Sweep a few transpositions and read `notes changed` and `slots missing` to pick
+  the key that fits.
 
 ## Engraving
 
@@ -179,8 +193,10 @@ Defaults in the script, all arrived at by correction:
   than leaving an empty box hanging off the front.
 - **Stacks in pitch order top to bottom**, melody down through the left-hand bass.
   Inverting this is easy to do and looks wrong immediately.
-- **Melody black on a fixed top line, accompaniment in a second colour** — essential
-  once inner voices appear in the right-hand row.
+- **Melody black, accompaniment in a second colour** — essential once inner voices
+  appear in the right-hand row. Right-hand melody sits on a fixed top line;
+  left-hand melody is drawn black at the top of the left-hand stack, so the melody
+  reads as one black line even when it crosses hands.
 - A dashed rule at the mid-bar beat only; dotting every quarter clutters. Small bar
   number in the margin, short section labels above.
 - Title on one line, single-line subtitle with key, metre and the pull convention.

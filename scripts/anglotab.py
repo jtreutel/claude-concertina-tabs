@@ -150,15 +150,35 @@ def arrange(tracks, bars, melody_track=0):
             snd = pool_sounding(t)
             if snd: bassev[i] = snd[0]; restrike.add(i)
 
-    def low(p, d):
-        b = find(LEFT, LOW_L, p-12, d)
+    def low(p, d, exclude=()):
+        b = find(LEFT, LOW_L, p-12, d, exclude)
         return (b, p-12) if b else (None, None)
+
+    def place_melody(p, d):
+        """The melody goes in whichever hand holds the note: the right by default,
+        the left when the note lives only there -- which is how a player takes a
+        melody that dips below the right hand.  Only a note that is off the
+        instrument at pitch falls back to an octave displacement, right hand first.
+        Returns (hand, button, sounded_pitch), or (None, None, None)."""
+        b = find(RIGHT, ORD_R, p, d)
+        if b: return 'R', b, p
+        b = find(LEFT, ORD_L, p, d)
+        if b: return 'L', b, p
+        for alt in (p+12, p-12):
+            b = find(RIGHT, ORD_R, alt, d)
+            if b: return 'R', b, alt
+        for alt in (p+12, p-12):
+            b = find(LEFT, ORD_L, alt, d)
+            if b: return 'L', b, alt
+        return None, None, None
 
     def cost(i, d):
         c = 0; p = msound[i]
         if p is not None:
-            if find(RIGHT, ORD_R, p, d): pass
-            elif find(RIGHT, ORD_R, p+12, d) or find(RIGHT, ORD_R, p-12, d): c += 40
+            if find(RIGHT, ORD_R, p, d): pass          # melody's home is the right hand
+            elif find(LEFT, ORD_L, p, d): c += 4        # left hand only when the note needs it
+            elif (find(RIGHT, ORD_R, p+12, d) or find(RIGHT, ORD_R, p-12, d)
+                  or find(LEFT, ORD_L, p+12, d) or find(LEFT, ORD_L, p-12, d)): c += 40
             else: return 10**6
         a = bassev[i]
         if a is not None:
@@ -206,14 +226,21 @@ def arrange(tracks, bars, melody_track=0):
         row = []
         for e in range(8):
             i = bar*8 + e; d = dirs[i]
-            cell = {'d': d, 'R': [], 'L': [], 'M': None, 're': False}
+            cell = {'d': d, 'R': [], 'L': [], 'M': None, 'Mh': None, 're': False}
             usedL, usedR, held = set(), set(), set()
             ceil = msound[i] if msound[i] is not None else 200
             show = mel[i] is not None or (msound[i] is not None and i > 0 and dirs[i-1] != d)
             if show and msound[i] is not None:
-                b = find(RIGHT, ORD_R, msound[i], d)
-                cell['R'].append(b); cell['M'] = b; usedR.add(b); held.add(msound[i])
-                if mel[i] is None: cell['re'] = True
+                mh, mb, mp = place_melody(msound[i], d)
+                if mb is not None:
+                    cell['M'] = mb; cell['Mh'] = mh; held.add(mp)
+                    (cell['R'] if mh == 'R' else cell['L']).append(mb)
+                    (usedR if mh == 'R' else usedL).add(mb)
+                    if mp != msound[i]:
+                        notes_changed.append((bar+1, 1+e/2, 'melody', nm(msound[i]), nm(mp)))
+                    if mel[i] is None: cell['re'] = True
+                else:
+                    notes_changed.append((bar+1, 1+e/2, 'melody', nm(msound[i]), 'out of range'))
 
             def place(vi, w, x, optional):
                 """Try, in order: left at pitch, right at pitch, left an octave
@@ -245,11 +272,11 @@ def arrange(tracks, bars, melody_track=0):
 
             a = bassev[i]
             if a is not None and i not in restrike:
-                b, p2 = low(a, d)
+                b, p2 = low(a, d, usedL)
                 if b:
                     cell['L'].append(b); usedL.add(b); held.add(p2)
                 else:
-                    b = find(LEFT, ORD_L, a, d)
+                    b = find(LEFT, ORD_L, a, d, usedL)
                     if b:
                         cell['L'].append(b); usedL.add(b); held.add(a)
                     else:
@@ -274,8 +301,8 @@ def arrange(tracks, bars, melody_track=0):
                 place(vi, w, x, optional=True)
             rb = bassev[i] if i in restrike else None
             if rb is not None and len(cell['L']) < 3:
-                b, p2 = low(rb, d)
-                for cand, pitch in ([(b, p2)] if b else []) + [(find(LEFT, ORD_L, rb, d), rb)]:
+                b, p2 = low(rb, d, usedL)
+                for cand, pitch in ([(b, p2)] if b else []) + [(find(LEFT, ORD_L, rb, d, usedL), rb)]:
                     if cand and cand not in usedL and pitch not in held and pitch <= ceil \
                        and not any(0 < abs(pitch-q) <= 2 for q in held):
                         cell['L'].append(cand); held.add(pitch); break
@@ -288,9 +315,11 @@ def arrange(tracks, bars, melody_track=0):
 # ---------------------------------------------------------------- verification
 def verify(grid, tracks, mel, msound, bars):
     NS = bars*8; ok = True
+    def mel_pitch(cell):
+        if cell['M'] is None: return None
+        return (RIGHT if cell['Mh'] == 'R' else LEFT)[cell['M']][cell['d']]
     bad = sum(1 for b in range(bars) for e in range(8)
-              if mel[b*8+e] is not None
-              and mel[b*8+e] not in [RIGHT[x][grid[b][e]['d']] for x in grid[b][e]['R']])
+              if mel[b*8+e] is not None and mel_pitch(grid[b][e]) != mel[b*8+e])
     print('melody mismatches: %d%s' % (bad, '' if bad == 0 else '   <-- MUST be 0'))
     ok &= bad == 0
     live = {}; prev = None; missing = []
@@ -309,9 +338,15 @@ def verify(grid, tracks, mel, msound, bars):
     print('slots missing a pitch class: %d of %d' % (len(missing), NS))
     for mrow in missing[:12]:
         print('    bar %-3d beat %-4g  %s' % mrow)
-    above = [(b+1, 1+e/2) for b in range(bars) for e in range(8)
-             for x in grid[b][e]['L']
-             if msound[b*8+e] and LEFT[x][grid[b][e]['d']] > msound[b*8+e]]
+    above = []
+    for b in range(bars):
+        for e in range(8):
+            cell = grid[b][e]; d = cell['d']; ms = msound[b*8+e]
+            if not ms: continue
+            for hand, tbl in (('R', RIGHT), ('L', LEFT)):
+                for x in cell[hand]:
+                    if (cell['Mh'], cell['M']) != (hand, x) and tbl[x][d] > ms:
+                        above.append((b+1, 1+e/2))
     print('accompaniment above the melody: %d%s' % (len(above), '' if not above else '   <-- should be 0'))
     ok &= not above
     runs = []; cur = None; n = 0
@@ -365,15 +400,18 @@ def engrave(grid, bars, path, title, subtitle, per_line=4, sections=None):
                 if bar0+k >= bars: break
                 cell = grid[bar0+k][e]; pull = cell['d'] == PULL
                 xc = x0 + (e+0.5)*SLOT
-                top = ymid + 8 + 2*LSP                     # melody on a fixed line
-                if cell['M']: num(xc, top, cell['M'], FM, INK, pull)
-                rest = sorted([b for b in cell['R'] if b != cell['M']],
+                top = ymid + 8 + 2*LSP                     # melody's fixed line (right hand)
+                melR = cell['M'] if cell['Mh'] == 'R' else None
+                melL = cell['M'] if cell['Mh'] == 'L' else None
+                if melR: num(xc, top, melR, FM, INK, pull)   # right-hand melody, black
+                rest = sorted([b for b in cell['R'] if b != melR],
                               key=lambda b: RIGHT[b][cell['d']], reverse=True)
                 for n2, b in enumerate(rest):
                     num(xc, top-(n2+1)*LSP, b, FA, ACC, pull)
                 for n2, b in enumerate(sorted(cell['L'], key=lambda b: LEFT[b][cell['d']],
-                                              reverse=True)):
-                    num(xc, ymid-13-n2*LSP, b, FA, ACC, pull)   # highest under the divider
+                                              reverse=True)):     # highest under the divider
+                    mel = b == melL                          # left-hand melody, black
+                    num(xc, ymid-13-n2*LSP, b, FM if mel else FA, INK if mel else ACC, pull)
         c.setStrokeColor(CELL); c.setLineWidth(0.6); c.line(X0, ymid, XE, ymid)
         c.setStrokeColor(RULE); c.setLineWidth(1.1)
         c.line(X0, ytop, XE, ytop); c.line(X0, ybot, XE, ybot)
